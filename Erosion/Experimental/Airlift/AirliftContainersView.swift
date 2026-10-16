@@ -27,6 +27,48 @@ private struct AirliftContainerResult: Identifiable {
     var id: String { path }
 }
 
+/// Uses the system segmented control at an explicit height so the control grows
+/// without scaling its title text.
+private struct AirliftNativeCategorySelector: UIViewRepresentable {
+    @Binding var selection: AirliftContainerCategory
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    func makeUIView(context: Context) -> UISegmentedControl {
+        let control = UISegmentedControl(items: AirliftContainerCategory.allCases.map(\.title))
+        control.selectedSegmentIndex = AirliftContainerCategory.allCases.firstIndex(of: selection) ?? 0
+        control.apportionsSegmentWidthsByContent = false
+        control.accessibilityLabel = "Container type"
+        control.addTarget(context.coordinator, action: #selector(Coordinator.selectionChanged(_:)), for: .valueChanged)
+        control.heightAnchor.constraint(equalToConstant: 33.6).isActive = true
+        return control
+    }
+
+    func updateUIView(_ uiView: UISegmentedControl, context: Context) {
+        context.coordinator.parent = self
+        let selectedIndex = AirliftContainerCategory.allCases.firstIndex(of: selection) ?? 0
+        if uiView.selectedSegmentIndex != selectedIndex {
+            uiView.selectedSegmentIndex = selectedIndex
+        }
+    }
+
+    final class Coordinator: NSObject {
+        var parent: AirliftNativeCategorySelector
+
+        init(_ parent: AirliftNativeCategorySelector) {
+            self.parent = parent
+        }
+
+        @objc func selectionChanged(_ sender: UISegmentedControl) {
+            let categories = AirliftContainerCategory.allCases
+            guard categories.indices.contains(sender.selectedSegmentIndex) else { return }
+            parent.selection = categories[sender.selectedSegmentIndex]
+        }
+    }
+}
+
 struct AirliftContainersView: View {
     @EnvironmentObject private var airlift: AirliftBridge
     @State private var selectedCategory: AirliftContainerCategory = .applications
@@ -202,24 +244,16 @@ struct AirliftContainersView: View {
     }
 
     private var categorySelector: some View {
-        Picker("Container type", selection: $selectedCategory) {
-            ForEach(AirliftContainerCategory.allCases) { category in
-                Text(category.title).tag(category)
-            }
-        }
-        .pickerStyle(.segmented)
-        .accessibilityLabel("Container type")
-        // Keep the native segmented control's drag-to-select behaviour.
-        // The default control is about 32 pt tall; 33.6 pt is a 5% increase.
-        .frame(height: 33.6)
+        AirliftNativeCategorySelector(selection: $selectedCategory)
+            .frame(maxWidth: .infinity)
+            .frame(height: 33.6)
     }
 
     var body: some View {
         List {
             Section {
                 categorySelector
-                    // Align the segmented control with the Search / Results card.
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     .listRowInsets(EdgeInsets(top: 3, leading: 0, bottom: 3, trailing: 0))
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
