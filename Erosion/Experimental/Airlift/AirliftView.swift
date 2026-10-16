@@ -512,6 +512,10 @@ R/W (?)
 /var/mobile/Library/SMS/Drafts/
 /var/mobile/Library/SMS/sms.db
 /var/mobile/.forward
+/var/mobile/Containers/Data/Application/UUID/ (may be broken and very dangerous)
+/var/mobile/Containers/Data/InternalDaemon/UUID/<folder/file you want to search>/
+/var/mobile/Containers/Data/PluginKitPlugin/UUID/<folder/file you want to search>/
+/var/mobile/Containers/Shared/AppGroup/UUID/<folder/file you want to search>/
 =========
 READ ONLY
 =========
