@@ -247,13 +247,14 @@ struct AirliftContainersView: View {
         AirliftNativeCategorySelector(selection: $selectedCategory)
             .frame(maxWidth: .infinity)
             .frame(height: 33.6)
+            .clipShape(Capsule())
     }
 
     var body: some View {
         List {
             Section {
                 categorySelector
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, 20)
                     .listRowInsets(EdgeInsets(top: 3, leading: 0, bottom: 3, trailing: 0))
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
