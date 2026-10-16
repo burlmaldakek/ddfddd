@@ -24,7 +24,7 @@ struct SettingsView: View {
                 
                 Section {
                     Link(destination: URL(string: "https://github.com/ceoca69/erosion-mod")!) {
-                        AppInfoCell(build: "Release", appName: "Erosion mod", appVersion: "2.0")
+                        AppInfoCell(build: "Release", appName: "Erosion mod", appVersion: "2.1")
                     }
                 } header: {
                     HeaderLabel("About", symbol: "info.circle")
