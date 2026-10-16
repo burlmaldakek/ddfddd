@@ -201,16 +201,45 @@ struct AirliftContainersView: View {
         }
     }
 
+    private var categorySelector: some View {
+        HStack(spacing: 3) {
+            ForEach(AirliftContainerCategory.allCases) { category in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        selectedCategory = category
+                    }
+                } label: {
+                    Text(category.title)
+                        .font(.system(size: 14, weight: .medium))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 28)
+                        .foregroundStyle(selectedCategory == category ? Color.primary : Color.secondary)
+                        .background {
+                            if selectedCategory == category {
+                                Capsule().fill(Color(.systemGray2))
+                            }
+                        }
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selectedCategory == category ? .isSelected : [])
+            }
+        }
+        .padding(.vertical, 3)
+        .padding(.horizontal, 4)
+        .frame(maxWidth: .infinity)
+        .background(Color(.secondarySystemGroupedBackground), in: Capsule())
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Container type")
+    }
+
     var body: some View {
         List {
             Section {
-                Picker("Container type", selection: $selectedCategory) {
-                    ForEach(AirliftContainerCategory.allCases) { category in
-                        Text(category.title).tag(category)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .accessibilityLabel("Container type")
+                categorySelector
+                    .padding(.horizontal, 16)
                     .listRowInsets(EdgeInsets(top: 3, leading: 0, bottom: 3, trailing: 0))
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
@@ -228,6 +257,8 @@ struct AirliftContainersView: View {
                         .foregroundStyle(.secondary)
                     if categoryScanRunning { ProgressView().controlSize(.small) }
                 }
+            } header: {
+                Label("Find a container", systemImage: "magnifyingglass")
             }
 
             Section {
