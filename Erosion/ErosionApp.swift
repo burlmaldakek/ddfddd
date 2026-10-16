@@ -89,7 +89,7 @@ struct ErosionApp: App {
                     }
                 }
                 print("")
-                print("[*] Erosion mod v2.0 (Release)")
+                print("[*] Erosion mod v2.1 (Release)")
                 print("[*] Running on \(UIDevice.current.systemName) \(UIDevice.current.systemVersion) \(machineName())")
                 print("[*] iOS Build \(buildNumber())")
                 if isAirliftCompatibilityMode() {
