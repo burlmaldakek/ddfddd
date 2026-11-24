@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>Erosion mod</string>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Erosion uses the local network for Airlift device pairing.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_remotepairing-pairable-host._tcp</string>
+		<string>_erosionprobe._tcp</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Erosion is testing the iOS microphone permission prompt. Prepare does not record audio.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Erosion is testing the iOS camera permission prompt. Prepare does not capture images.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Erosion is testing the Photos access prompt. Prepare does not read or modify your photo library.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Erosion is testing the location permission prompt. Prepare does not collect or store your location.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Erosion is testing the Contacts permission prompt. Prepare does not read or store your contacts.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Erosion is testing the Face ID system interface. Prepare does not store biometric data.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Erosion is testing the Bluetooth permission prompt. Prepare does not scan for or connect to nearby devices.</string>
+</dict>
+</plist>

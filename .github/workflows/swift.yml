@@ -1,0 +1,213 @@
+name: Build Erosion IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      rebuild_airlift:
+        description: "Force a rebuild of the Rust AirliftFFI library"
+        required: false
+        default: false
+        type: boolean
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app
+          xcodebuild -version
+          xcode-select -p
+
+      - name: Detect Airlift Rust changes
+        id: airlift-changes
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REBUILD_REQUESTED: ${{ github.event.inputs.rebuild_airlift || 'false' }}
+        run: |
+          if [[ "$REBUILD_REQUESTED" == "true" ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$EVENT_NAME" == "push" ]]; then
+            # Use the changed-paths included in the push event payload, so this
+            # check works with checkout's shallow clone and doesn't fetch history.
+            if python3 - "$GITHUB_EVENT_PATH" <<'PYTHON'
+          import json, sys
+          with open(sys.argv[1], encoding="utf-8") as stream:
+              event = json.load(stream)
+          paths = []
+          for commit in event.get("commits", []):
+              for key in ("added", "modified", "removed"):
+                  paths.extend(commit.get(key, []))
+          changed = any(
+              path.startswith("AirCard-iOS-main/rust-core/") or path == "build-airlift-ffi.sh"
+              for path in paths
+          )
+          sys.exit(0 if changed else 1)
+          PYTHON
+            then
+              echo "changed=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "changed=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Airlift Rust rebuild required: $(grep '^changed=' "$GITHUB_OUTPUT" | cut -d= -f2)"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+
+      - name: Make build script executable
+        run: chmod +x ./ipabuild.sh
+
+      - name: Ensure ldid is available for App Group entitlements
+        run: |
+          if ! command -v ldid >/dev/null 2>&1; then
+            brew install ldid
+          fi
+          command -v ldid
+
+      - name: Verify source layout
+        run: |
+          test -f AirCard-iOS-main/rust-core/src/exploit.rs
+          test -f Erosion.xcodeproj/project.pbxproj
+          test -f Erosion/Experimental/Airlift/AirliftBridge.swift
+          test -f External/AirliftFFI.xcframework/ios-arm64/libairlift_ffi.a
+
+      - name: Rebuild AirliftFFI (clean rebuild to prevent stale archive linker failures)
+        run: |
+          bash ./build-airlift-ffi.sh
+          echo "=== AirliftFFI verification ==="
+          ARCHIVE="External/AirliftFFI.xcframework/ios-arm64/libairlift_ffi.a"
+          test -s "$ARCHIVE"
+          ls -lh "$ARCHIVE"
+          nm -g "$ARCHIVE" | grep -q 'al_get_app_icon_png'
+          nm -g "$ARCHIVE" | grep -q 'al_exploit_read_afc_only_file'
+          nm -g "$ARCHIVE" | grep -q 'al_exploit_read_afc_only_folder'
+          echo "[OK] AirliftFFI rebuilt with app-icon and AFC-only read exports."
+
+      - name: Validate merged read routing
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          src = Path("AirCard-iOS-main/rust-core/src/exploit.rs").read_text()
+          # Validate by stable function/routing markers instead of slicing between
+          # comment delimiters, which are easy to invalidate during source edits.
+          assert "pub unsafe fn read_file(" in src
+          assert "pub(crate) async fn read_folder(" in src
+          assert "exploit_read_media_file(" in src
+          assert "exploit_read_media_folder_per_file(" in src
+          assert "exploit_read_folder_safe(" in src
+          assert "exploit_read_folder_legacy(" in src
+          assert "application_data_container_root(&target_dir)" in src
+          assert "exploit_read_application_container_subdirs(" in src
+          assert 'trimmed == "/var/mobile/Containers"' in src
+          assert 'trimmed.starts_with("/var/mobile/Containers/")' in src
+          assert 'exploit_read_folder_legacy(pairing_path, target_dir, logger).await' in src
+          assert 'exploit_read_folder_safe(pairing_path, target_dir, logger).await' in src
+          assert 'pub(crate) async fn read_app_icon_png(' in src
+          assert 'get_icon_pngdata(bundle_id.clone())' in src
+          afc = Path("AirCard-iOS-main/rust-core/vendor/idevice/src/services/afc/mod.rs").read_text()
+          assert 'pub st_mode: Option<u32>' in afc
+          assert 'info.st_mode' in src
+          assert 'metadata.permissions().mode()' in src
+          app_view = Path("Erosion/Tweaks/Other/AppsManagementView.swift").read_text()
+          assert 'restoreExecutablePermissions(in: appURL)' in app_view
+          assert 'CFBundleExecutable' in app_view
+          ffi = Path("AirCard-iOS-main/rust-core/src/lib.rs").read_text()
+          header = Path("AirCard-iOS-main/rust-core/include/airlift.h").read_text()
+          app_header = Path("Erosion/Experimental/Airlift/airlift.h").read_text()
+          assert 'pub unsafe extern "C" fn al_get_app_icon_png(' in ffi
+          assert 'al_get_app_icon_png' in header
+          assert 'pub unsafe extern "C" fn al_exploit_read_afc_only_file(' in ffi
+          assert 'pub unsafe extern "C" fn al_exploit_read_afc_only_folder(' in ffi
+          assert 'al_exploit_read_afc_only_file' in header
+          assert 'al_exploit_read_afc_only_folder' in header
+          assert 'al_exploit_read_afc_only_file' in app_header
+          assert 'al_exploit_read_afc_only_folder' in app_header
+          assert 'pub(crate) async fn read_afc_only_file(' in src
+          assert 'pub(crate) async fn read_afc_only_folder(' in src
+          afc_only_start = src.index('fn afc_only_relative_path(')
+          afc_only_end = src.index('/// Return the AFC-relative path for a path', afc_only_start)
+          afc_only_impl = src[afc_only_start:afc_only_end]
+          assert 'connect_afc(' in afc_only_impl
+          assert 'export_recovered_directory(' in afc_only_impl
+          assert 'exploit_read_file(' not in afc_only_impl
+          assert 'connect_service(' not in afc_only_impl
+          airlift_view = Path("Erosion/Experimental/Airlift/AirliftView.swift").read_text()
+          # AFC-only UI control was intentionally removed. Verify the current
+          # default read entry points instead of requiring the obsolete argument.
+          assert 'airlift.readRemoteFile()' in airlift_view
+          assert 'airlift.readRemoteFolder()' in airlift_view
+          assert 'isAFCMediaPath' not in airlift_view
+          assert '.navigationDestination(isPresented:' in airlift_view
+          assert 'airlift.saveReadResults' in Path("Erosion/ErosionApp.swift").read_text()
+          assert 'alternate_parent_alias: Option<&str>' in src
+          assert 'fresh-AFC restore verification succeeded' in src
+          assert 'verified through an AFC destination alias' in src
+          assert 'original directory is already visible via the original parent alias' in src
+          # InstallationProxy remains the source for Data/Application and App Groups,
+          # but no longer recursively traverses every app plist for special roots.
+          assert 'get_apps(Some("Any"), None)' in src
+          assert 'collect_additional_container_paths' not in src
+          assert 'additionalContainerPaths' not in src
+          print("[OK] Media, Containers, and legacy non-Media routing markers are present.")
+          print("[OK] InstallationProxy keeps Data/Application and App Groups metadata without InternalDaemon/PluginKitPlugin plist traversal.")
+          print("[OK] SpringBoard Services app-icon FFI is present in Rust and its C header.")
+          print("[OK] AFC metadata modes are preserved when available; exported app executable bits are restored from Info.plist.")
+          print("[OK] Exact restore checks both aliases and re-verifies unresolved handoffs on a fresh AFC session.")
+          PY
+
+      - name: Clean Xcode build state
+        run: |
+          rm -rf build
+          rm -rf "$HOME/Library/Developer/Xcode/DerivedData/Erosion-*"
+          xcodebuild -project Erosion.xcodeproj -scheme Erosion -configuration Release -showBuildSettings >/dev/null
+
+      - name: Build IPA
+        run: ./ipabuild.sh
+
+      - name: Verify IPA contains new Airlift code
+        run: |
+          IPA="$(find . -type f -name '*.ipa' -print -quit)"
+          test -n "$IPA"
+          rm -rf /tmp/erosion-ipa-verify
+          mkdir -p /tmp/erosion-ipa-verify
+          unzip -q "$IPA" -d /tmp/erosion-ipa-verify
+          APP="/tmp/erosion-ipa-verify/Payload/Erosion.app/Erosion"
+          test -f "$APP"
+          if strings "$APP" | grep -Fq 'airlift-folder: exact restore attempt' && \
+             strings "$APP" | grep -Fq 'SAFE DIRECT AFC SUCCESS' && \
+             strings "$APP" | grep -Fq 'exact restore confirmed'; then
+            echo "[OK] Final IPA contains the expected non-Media and Media Airlift read implementation."
+          else
+            echo "[ERROR] Final IPA is missing part of the merged read implementation."
+            exit 1
+          fi
+          if strings "$APP" | grep -Fq 'SAFETY STOP — restore verification failed'; then
+            echo "[ERROR] Final IPA still contains the old restore-verification failure path."
+            exit 1
+          fi
+
+      - name: Find IPA
+        run: |
+          echo "=== IPA FILES ==="
+          find . -type f -name "*.ipa" -print
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Erosion-IPA
+          path: "**/*.ipa"
+          if-no-files-found: error
+          retention-days: 7

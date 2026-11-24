@@ -1,0 +1,14 @@
+Erosion v3.0 - Dialer & Passcode Prefix / Explore Restore
+
+Changes:
+- Restored HomeThemingExploreView.swift exactly from Erosion_v78_1_MobileGestalt_CardsArtwork_2x_Fallback_Fix (before the recent Explore card enlargement/removal of the preview frame).
+- Added Settings > Dialer & Passcode > Prefix using the same 12pt monospaced, trailing-aligned TextField style as Airlift's Targeting Path field.
+- On app launch, asynchronously use Worse Query to locate the com.apple.InCallService data container, grant access to Library/Caches/TelephonyUI-10, inspect only filenames, and detect an available language prefix. Preferred system language is selected when present; otherwise fallback order is other, en, then first available.
+- The detected prefix is stored in UserDefaults and can be manually edited in Settings.
+- Dialer Themer and Custom Passcode use the same prefix. Existing key labels/subtexts (A/B/C etc.) are unchanged.
+
+Validation:
+- 84 Swift source files parsed with swiftc -frontend -parse.
+- DialerPasscodePrefix.swift typechecked against API stubs for the existing Worse Query/FSHandlers interfaces.
+- Explore source matches the pre-visual-change reference archive byte-for-byte.
+- Full Xcode build was not run (xcodebuild unavailable in this environment).
