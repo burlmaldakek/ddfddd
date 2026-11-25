@@ -492,7 +492,7 @@ struct AirliftView: View {
                     .foregroundStyle(.red)
             }
         } header: {
-            HeaderLabel("Settings", symbol: "gearshape")
+            HeaderLabel("Quick Actions", symbol: "gearshape")
         }
     }
 
@@ -644,7 +644,7 @@ private struct AirliftSettingsView: View {
                         preparePairingExport()
                     } label: {
                         Text("Export Pairing File")
-                            .foregroundStyle(Color.orange)
+                            .foregroundStyle(Color.accentColor)
                     }
                     // The action guards its own in-flight state so the native
                     // Erosion button text never dims while the file is prepared.
@@ -667,7 +667,7 @@ private struct AirliftSettingsView: View {
                     }
                 } label: {
                     Text("Export Data")
-                        .foregroundStyle(Color.orange)
+                        .foregroundStyle(Color.accentColor)
                 }
 
                 Button(role: .destructive) {
