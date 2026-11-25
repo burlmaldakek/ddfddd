@@ -63,7 +63,7 @@ struct AirliftView: View {
                         NavigationLink {
                             AirliftSettingsView()
                         } label: {
-                            Label("Settings", systemImage: "gearshape")
+                            Label("Settings", systemImage: "gear")
                         }
 
                         Divider()
@@ -132,7 +132,7 @@ struct AirliftView: View {
         }
         .refreshable { refresh(); pairedTick &+= 1 }
         .sheet(isPresented: Binding(
-            get: { airlift.showReadView && !fullScreenViewing && !readFileNeedsDirectQuickLook },
+            get: { airlift.showReadView && !shouldPresentReadViewFullScreen && !readFileNeedsDirectQuickLook },
             set: { isPresented in
                 if !isPresented { airlift.showReadView = false }
             }
@@ -141,7 +141,7 @@ struct AirliftView: View {
                 .environmentObject(airlift)
         }
         .navigationDestination(isPresented: Binding(
-            get: { airlift.showReadView && fullScreenViewing },
+            get: { airlift.showReadView && shouldPresentReadViewFullScreen },
             set: { isPresented in
                 if !isPresented { airlift.showReadView = false }
             }
@@ -150,7 +150,7 @@ struct AirliftView: View {
                 .environmentObject(airlift)
         }
         .onChange(of: airlift.showReadView) { _, isPresented in
-            guard isPresented, !fullScreenViewing, readFileNeedsDirectQuickLook,
+            guard isPresented, !shouldPresentReadViewFullScreen, readFileNeedsDirectQuickLook,
                   let local = airlift.readViewLocalPath else { return }
             let url = URL(fileURLWithPath: local)
             // Do not present Quick Look from inside the Airlift sheet: that creates
@@ -597,6 +597,12 @@ struct AirliftView: View {
         return !pin.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// Full Screen Viewing applies only to directory snapshots. File viewers keep
+    /// the regular sheet presentation, regardless of this preference.
+    private var shouldPresentReadViewFullScreen: Bool {
+        fullScreenViewing && airlift.readViewIsFolder
+    }
+
     private var readFileNeedsDirectQuickLook: Bool {
         guard !airlift.readViewIsFolder,
               let local = airlift.readViewLocalPath else { return false }
@@ -690,7 +696,7 @@ private struct AirliftSettingsView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .navigationTitle("")
+        .navigationTitle("Airlift Settings")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $shareItem, onDismiss: cleanupShareItem) { item in
             AirliftActivitySheet(items: [item.url])
